@@ -13,3 +13,9 @@ The problem in front is: whether to use external GCC for simplicity,
 or to implement a new C compiler for function restriction. At this
 very early stage, I am about to take GCC until a rewrite of C compiler
 based on LLVM be ready.
+
+For fast deployment, we devided the procedure into two separate parts:
+1. Loader as Nginx input filter, that automatically load/update pages;
+2. Builder that builds pages.
+
+Both of them will be triggered by inotify[if no better solution].
