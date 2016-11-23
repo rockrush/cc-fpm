@@ -1,16 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <event.h>
 #include "../include/cweb/pages.h"
 
-static int check_support(struct support *);
-static int get_root(void);
-
-/* 模块配置 */
-struct plugin config = {
-	.desc = "Sample plugin", /* 模块简短描述，建议用漏洞名 */
-	.check_support = check_support,
-	.get_root = get_root,
-};
+struct page config;
 
 /* 加载动态库的自动初始化函数 */
 void _init(void) {
@@ -28,9 +21,15 @@ static int check_support(struct support *p) {
 	return 0;
 }
 
-/* 提权 */
-static int get_root(void) {
-	printf("Executing ROOT exploit ...\n");
+static int get(struct evbuffer *ret_buf) {
+	evbuffer_add_printf(ret_buf, "Executing ROOT exploit ...\n");
 	return 0;
 } 
 
+/* 模块配置 */
+struct page config = {
+	.desc = "Test", /* 模块简短描述，建议用漏洞名 */
+	.base = "test.html",
+	.check_support = check_support,
+	.get = get,
+};

@@ -5,14 +5,15 @@
 struct support {
 	int kern_ver;
 	long long distro;	/* support 64 distros */
-	int plugins;
+	int pages;
 };
 
-struct plugin {
+struct page {
 	char *desc;
+	char *base;
+	void *handler;
 	int (* check_support)(struct support *p);
-	int (* get_root)(void);
+	int (* get)(struct evbuffer *ret_buf);
+	struct page *next;
 };
-
-extern void _register(struct plugin *);
 #endif	/* _HAS_PLUGINS_H */

@@ -1,3 +1,6 @@
-extern char *plugins_dir;
+extern char *pages_dir;
 
-void cweb_args(int argc, char *argv[]);
+void cmdline_args(int argc, char *argv[]);
+void cweb_init(void);
+int init_pages(void);
+struct page *http_router(char *uri);

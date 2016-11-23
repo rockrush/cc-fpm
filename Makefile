@@ -6,13 +6,12 @@ CC = clang
 
 all: ${TARGET}
 
-tinyweb: src/utils/tinyweb.c
+tinyweb: binding/tinyweb.c src/main.c utils/compat.c
 	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $^
-	@echo $(CFLAGS)
 
-cweb: src/main.c src/cweb_args.c
-	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $^
+cweb: src/main.c src/cmdline_args.c utils/compat.c
+	$(CC) $(CFLAGS) -DCWEB_TEST -o $@ $(LDFLAGS) $^
 
 .PHONY: clean
 clean:
-	@rm ${TARGET}
+	@rm -f ${TARGET} html/*.mod

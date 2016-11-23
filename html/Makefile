@@ -1,12 +1,14 @@
+CC = clang
 CFLAGS += -I.
 LDFLAGS_PLUGINS = -shared -fPIC -nostartfiles
 
-.c.mod:
+%.html: %.c
 	$(CC) $(CFLAGS) $(LDFLAGS_PLUGINS) -o $@ $<
+	@strip $@
 
-all: sample.mod test.mod dummy.mod
+all: sample.html test.html dummy.html
 
 .PHONY: clean
 
 clean:
-	@rm -f *.so
+	@rm -f *.html

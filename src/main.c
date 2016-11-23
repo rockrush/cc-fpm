@@ -6,99 +6,100 @@
 #include <dirent.h>
 #include <getopt.h>
 #include <string.h>
-#include <linux/version.h>
+#include <event.h>
 
+#include <cweb/compat.h>
 #include <cweb/pages.h>
 #include <cweb/cweb_internal.h>
-#include "../config.h"
+#include <cweb/config.h>
 
-/* Some variables */
-char *plugins_dir = NULL;
-struct plugin_list {
-	int id;
-	struct plugin *p;
-	struct plugin_list *prev;
-};
-
+char *pages_dir = "html/";
+struct page *pages_list = NULL;
 struct support sys_info;
-struct plugin_list *plugin_list_head = NULL;
-int candidates[256];	/* supports no more than 256 candidates */
 
 /* 供动态库使用的注册函数 */
-void _register(struct plugin *p) {
-	struct plugin_list *plugin_item = NULL;
-
-	plugin_item = malloc(sizeof(struct plugin_list));
-	if (plugin_item == NULL) {
-		printf("malloc failed: %s\n", p->desc);
-		exit(-1);
-	}
-	sys_info.plugins += 1;
-	plugin_item->id = sys_info.plugins;
-	plugin_item->p = p;
-	plugin_item->prev = plugin_list_head;
-	plugin_list_head = plugin_item;
+void load_page(struct page *p) {
+	sys_info.pages += 1;
+	p->next = pages_list;
+	pages_list = p;
 }
 
-static int load_plugins(char *dir)
+int init_pages(void)
 {
-	DIR *dir_s = NULL;
 	void *handler = NULL;
 	struct dirent *file = NULL;
-	struct plugin *plugin_config = NULL;
-	char plugin_file[128];
+	struct page *new_page = NULL;
+	char page_path[128];
 	char *file_ext = NULL;
+	DIR *dir_s = opendir(pages_dir);
 
-	/* check for necessary vars */
-	if (dir == NULL)
-		dir = "plugins/";	/* take "plugins/" as default */
-
-	dir_s = opendir(dir);
 	while ((file = readdir(dir_s)) != NULL) {
-		sprintf(plugin_file, "%s%s", dir, file->d_name);
-		file_ext = strrchr(plugin_file, '.');
+		sprintf(page_path, "%s%s", pages_dir, file->d_name);
+		file_ext = strrchr(page_path, '.');
 		if (file_ext == NULL)
 			continue;
-		else if (strcmp(file_ext, ".mod"))
+		else if (strcmp(file_ext, ".html"))
 			continue;
-		handler = dlopen(plugin_file, RTLD_LAZY);
+		handler = dlopen(page_path, RTLD_LAZY);
 		if (handler == NULL) {
-			printf("[WARNING] loading of plugin %s failed, file is %s, reason is %s.\n", file->d_name, plugin_file, dlerror());
+			printf("[WARNING] loading of page %s failed, reason is %s.\n", page_path, dlerror());
 			continue;
 		} else {
-			plugin_config = (struct plugin *)dlsym(handler, "config");
-			_register(plugin_config);
-			printf("plugin %s loaded.\n", file->d_name);
+			new_page = (struct page *)dlsym(handler, "config");
+			load_page(new_page);
+			new_page->handler = handler;
 		}
 	}
 	return EXIT_SUCCESS;
 }
 
 /* initialization */
-void cweb_init()
+void cweb_init(void)
 {
-	plugins_dir = WEB_DIR;
-	sys_info.plugins = 0;
-	sys_info.kern_ver = KERNEL_VERSION(3, 12, 0);
+	sys_info.pages = 0;
+	sys_info.kern_ver = kernel_version();
 }
 
-int main(int argc, char *argv[]) {
+struct page *http_router(char *uri)
+{
+	struct page *cur_page = pages_list;
+	/* Separate GET params */
+	char *get_params = strchr(uri, '?');
+	if (get_params != NULL) {
+		get_params[0] = '\0';
+		get_params++;
+	}
+	while (cur_page != NULL) {
+		if (strcmp(uri+1, cur_page->base) == 0) {
+			printf("[ROUTE] %s, %s\n", uri, cur_page->base);
+			return cur_page;
+		}
+		cur_page = cur_page->next;
+	}
+	printf("[ROUTE](fail) %s\n", uri);
+	return NULL;	/* TODO: 404 page */
+}
+
+#ifdef CWEB_TEST
+int main(int argc, char *argv[])
+{
 	int retval;
 	void *handle = NULL;
 
-	/* init some global variables */
 	cweb_init();
-	/* read commandline options */
-	cweb_args(argc, argv);
+	cmdline_args(argc, argv);
 
-	/* load plugins */
-	retval = load_plugins(plugins_dir);
+	retval = init_pages();	/* load pages */
 	if (retval) {
-		printf("[ERROR] loading of plugins failed.\n");
+		printf("[ERROR] loading of pages failed.\n");
 		return EXIT_FAILURE;
 	}
 
-	if(plugin_list_head != NULL)
-		plugin_list_head->p->check_support(&sys_info);
+	struct page *cur_page = pages_list;
+	while (cur_page != NULL) {
+		cur_page->check_support(&sys_info);
+		cur_page = cur_page->next;
+	}
 	return EXIT_SUCCESS;
 }
+#endif
